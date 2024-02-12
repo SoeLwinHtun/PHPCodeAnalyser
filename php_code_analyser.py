@@ -5,15 +5,16 @@ import sys
 def scan_php_file(file_path):
     with open(file_path, 'r') as file:
         php_code = file.readlines()
+
     # Regular expression patterns for various vulnerabilities
     sql_pattern = r'(\$pdo->\w+\(|\$mysqli->\w+\(|\$conn->\w+\(|mysqli_query\(|mysql_query\(|pg_query\()'
-    xss_pattern = r'echo\s*[\(]?[\$]_GET\s*[\[]?|echo\s*[\(]?[\$]_POST\s*[\[]?|echo\s*[\(]?[\$]_REQUEST\s*[\[]?'
-    upload_pattern = r'move_uploaded_file\(|is_uploaded_file\(|\$FILES\['
+    xss_pattern = r'echo\s*[\(]?[\$]?_GET\s*[\[]?|echo\s*[\(]?[\$]?_POST\s*[\[]?|echo\s*[\(]?[\$]?_REQUEST\s*[\[]?|\$\w+\s*=\s*[\$]?_GET\s*[\[]?|\$\w+\s*=\s*[\$]?_POST\s*[\[]?|\$\w+\s*=\s*[\$]?_REQUEST\s*[\[]?|<\?php\s*echo\s*[\(]?[\$]?_GET\s*[\[]?|<\?php\s*echo\s*[\(]?[\$]?_POST\s*[\[]?|<\?php\s*echo\s*[\(]?[\$]?_REQUEST\s*[\[]?'
+    upload_pattern = r'(move_uploaded_file\s*\( | is_uploaded_file\s*\( | \$_FILES\[ )'
+
 
     # check for password hashing
-
     password_hash_check = False
-    password_warning = "Potential Plain Text Password Storage. \n Recommendation: Store passwords securely using hashing algorithms (e.g., bcrypt) with salt."
+    password_warning = "WARNING: Potential Plain Text Password Storage.\n Recommendation: Store passwords securely using hashing algorithms (e.g., bcrypt) with salt."
 
     for line in php_code:
         if '$password' in line and 'password_hash()' not in line:
@@ -21,7 +22,19 @@ def scan_php_file(file_path):
 
     if password_hash_check:
         print(password_warning)
-            
+
+
+    # check for html form accept type
+        
+    file_type_check = False
+    file_type_warning = "\nWARNING: It seems that there is a form to upload a file but there is no restriction for accept type.\nRecommendation: use the 'accept' attribute. " 
+
+    for line in php_code:
+        if ('type="file"' in line or "type='file'" in line) and 'accept' not in line:
+            file_type_check = True
+
+    if file_type_check:
+        print(file_type_warning)
     # Search for vulnerabilities in the PHP code
     vulnerabilities = []
 
@@ -43,6 +56,7 @@ def scan_php_file(file_path):
             print(f"- Line {line_num}: {vulnerability}")
             print(f"  {recommendation}")
             print(f"  {php_code[line_num - 1].strip()}")  # Print the affected line
+        print("\nWARNING: These are just potential vulnerabilities based on pattern matching,and there might be some false positives and in some cases, false negatives.\nIt is necessary to double check the code before moving on to production.")
     else:
         print(f"No vulnerabilities found in file: {file_path}")
 
